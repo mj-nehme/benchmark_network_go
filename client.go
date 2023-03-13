@@ -1,50 +1,34 @@
 package main
 
 import (
-	"Baseline/Benchmark"
-	"Harmony/Errors"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"net"
-	"os"
 	"strconv"
 	"time"
 )
 
-type Message []byte
+func run_client() {
 
-var ip string = "127.0.0.1"
-var MessageSize int = 1000000
-var NbMessages int = 1000
-var port int = 5555
-
-func main() {
-
-	if len(os.Args) > 2 {
-
-		port, err := strconv.Atoi(os.Args[1])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading port %d\nFatal error: %s\n", port, err.Error())
-		}
-	}
-	completeAddress := ip + ":" + strconv.Itoa(port)
+	completeAddress := IP + ":" + strconv.Itoa(port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", completeAddress)
 	if err != nil {
-		Errors.Error(err, "Error resolving address")
+		log.Panicf("Error resolving address %s", err)
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
-		Errors.Error(err, "DialTCP Error")
+		log.Panicf("DialTCP Error %s", err)
 	}
 
-	BenchmarkGOB(conn)
-	BenchmarkBinary(conn)
-	BenchmarkConn(conn)
+	BenchmarkClientGOB(conn)
+	BenchmarkClientBinary(conn)
+	BenchmarkClientConn(conn)
 }
 
-func BenchmarkGOB(conn net.Conn) {
+func BenchmarkClientGOB(conn net.Conn) {
 
 	enc := gob.NewEncoder(conn)
 
@@ -56,15 +40,15 @@ func BenchmarkGOB(conn net.Conn) {
 
 		err := enc.Encode(bytes)
 		if err != nil {
-			panic("error sending message")
+			log.Panic("error sending message")
 		}
 	}
 	EndTime = time.Now()
-	throughput := Benchmark.CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
+	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
 	fmt.Println("Throughput using GOB Package:\t\t" + throughput)
 }
 
-func BenchmarkBinary(conn net.Conn) {
+func BenchmarkClientBinary(conn net.Conn) {
 
 	buffer := make([]byte, MessageSize)
 
@@ -74,15 +58,15 @@ func BenchmarkBinary(conn net.Conn) {
 
 		err := binary.Write(conn, binary.LittleEndian, buffer)
 		if err != nil {
-			panic("error sending message")
+			log.Panic("error sending message")
 		}
 	}
 	EndTime = time.Now()
-	throughput := Benchmark.CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
+	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
 	fmt.Println("Throughput using Binary Package:\t" + throughput)
 }
 
-func BenchmarkConn(conn net.Conn) {
+func BenchmarkClientConn(conn net.Conn) {
 
 	var StartTime, EndTime time.Time
 	StartTime = time.Now()
@@ -92,7 +76,7 @@ func BenchmarkConn(conn net.Conn) {
 		SendConn(conn, buffer)
 	}
 	EndTime = time.Now()
-	throughput := Benchmark.CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
+	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
 	fmt.Println("Throughput using net Package:\t\t" + throughput)
 }
 
@@ -103,7 +87,7 @@ func SendConn(conn net.Conn, bytes []byte) {
 
 		sentBytes, err := conn.Write(bytes[ping:MessageSize])
 		if err != nil || sentBytes <= 0 {
-			panic("error sending message")
+			log.Panic("error sending message")
 		}
 		ping += sentBytes
 	}

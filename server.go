@@ -4,24 +4,13 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
 )
 
-var MessageSize int = 1000000
-var NbMessages int = 1000
-var port int = 5555
-
-func main() {
-
-	if len(os.Args) > 2 {
-
-		port, err := strconv.Atoi(os.Args[1])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading port %d\nFatal error: %s\n", port, err.Error())
-		}
-	}
+func run_server() {
 
 	completeAddress := ":" + strconv.Itoa(port)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", completeAddress)
@@ -52,7 +41,7 @@ func BenchmarkGOB(conn net.Conn) {
 
 		err := dec.Decode(&buffer)
 		if err != nil {
-			panic("error receiving message")
+			log.Panic("error receiving message")
 		}
 	}
 }
@@ -64,7 +53,7 @@ func BenchmarkBinary(conn net.Conn) {
 
 		err := binary.Read(conn, binary.LittleEndian, buffer)
 		if err != nil {
-			panic("error receiving message")
+			log.Panic("error receiving message")
 		}
 	}
 }
@@ -85,7 +74,7 @@ func ReceiveConn(conn net.Conn, bytes []byte) {
 
 		receivedBytes, err := conn.Read(bytes[pong:MessageSize])
 		if err != nil || receivedBytes <= 0 {
-			panic("error receiving message")
+			log.Panic("error receiving message")
 		}
 		pong += receivedBytes
 	}

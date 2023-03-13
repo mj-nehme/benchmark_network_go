@@ -1,4 +1,4 @@
-package Benchmark
+package main
 
 import (
 	"fmt"
