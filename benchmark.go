@@ -64,17 +64,18 @@ func PrintDataAmount(dataAmount float64) {
 
 func getMetric(size float64) string {
 
-	if size >= Peta {
+	switch {
+	case size >= Peta:
 		return strconv.FormatFloat(size/Peta, 'f', 2, 32) + "P"
-	} else if size >= Tera {
+	case size >= Tera:
 		return strconv.FormatFloat(size/Tera, 'f', 2, 32) + "T"
-	} else if size >= Giga {
+	case size >= Giga:
 		return strconv.FormatFloat(size/Giga, 'f', 2, 32) + "G"
-	} else if size >= Mega {
+	case size >= Mega:
 		return strconv.FormatFloat(size/Mega, 'f', 2, 32) + "M"
-	} else if size >= Kilo {
+	case size >= Kilo:
 		return strconv.FormatFloat(size/Kilo, 'f', 2, 32) + "K"
-	} else {
+	default:
 		return strconv.FormatFloat(size, 'f', 2, 32)
 	}
 }
