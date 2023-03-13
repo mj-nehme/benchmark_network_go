@@ -31,10 +31,7 @@ func run_client() {
 	server_conn = new_connection
 	enc = gob.NewEncoder(server_conn)
 
-	var fns []func() error
-	fns = append(fns, BenchmarkClientGOB)
-	fns = append(fns, BenchmarkClientBinary)
-	fns = append(fns, BenchmarkClientConn)
+	var fns = []func() error{WriteGOB, WriteBinary, WriteConn}
 	fmt.Println("Throughput: ")
 
 	for _, fn := range fns {
@@ -57,18 +54,18 @@ func run_client() {
 	}
 }
 
-func BenchmarkClientGOB() error {
+func WriteGOB() error {
 
 	return enc.Encode(bytes)
 }
 
-func BenchmarkClientBinary() error {
+func WriteBinary() error {
 
 	return binary.Write(server_conn, binary.LittleEndian, bytes)
 
 }
 
-func BenchmarkClientConn() error {
+func WriteConn() error {
 
 	return SendConn(bytes)
 }

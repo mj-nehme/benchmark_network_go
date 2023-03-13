@@ -32,10 +32,8 @@ func run_server() {
 	client_connection = new_connection
 	dec = gob.NewDecoder(client_connection)
 
-	var fns []func() error
-	fns = append(fns, BenchmarkServerGOB)
-	fns = append(fns, BenchmarkServerBinary)
-	fns = append(fns, BenchmarkServerConn)
+	var fns = []func() error{ReadGOB, ReadBinary, ReadConn}
+
 	fmt.Println("Throughput: ")
 
 	for _, fn := range fns {
@@ -52,17 +50,17 @@ func run_server() {
 	}
 }
 
-func BenchmarkServerGOB() error {
+func ReadGOB() error {
 
 	return dec.Decode(&bytes)
 }
 
-func BenchmarkServerBinary() error {
+func ReadBinary() error {
 
 	return binary.Read(client_connection, binary.LittleEndian, bytes)
 }
 
-func BenchmarkServerConn() error {
+func ReadConn() error {
 
 	return ReceiveConn(bytes)
 }
