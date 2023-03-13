@@ -10,6 +10,9 @@ import (
 	"strconv"
 )
 
+var client_connection net.Conn
+var dec *gob.Decoder
+
 func run_server() {
 
 	completeAddress := ":" + strconv.Itoa(port)
@@ -22,60 +25,58 @@ func run_server() {
 		fmt.Fprintf(os.Stderr, "Error listening on port %d\nFatal error: %s\n", port, err.Error())
 	}
 
-	conn, err := listener.Accept()
+	new_connection, err := listener.Accept()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error Accepting a new connection\nFatal error: %s\n", err.Error())
 	}
+	client_connection = new_connection
+	dec = gob.NewDecoder(client_connection)
 
-	BenchmarkGOB(conn)
-	BenchmarkBinary(conn)
-	BenchmarkConn(conn)
-}
+	var fns []func() error
+	fns = append(fns, BenchmarkServerGOB)
+	fns = append(fns, BenchmarkServerBinary)
+	fns = append(fns, BenchmarkServerConn)
+	fmt.Println("Throughput: ")
 
-func BenchmarkGOB(conn net.Conn) {
+	for _, fn := range fns {
 
-	dec := gob.NewDecoder(conn)
+		bytes = make([]byte, MessageSize)
 
-	buffer := make([]byte, MessageSize)
-	for i := 0; i < NbMessages; i++ {
-
-		err := dec.Decode(&buffer)
-		if err != nil {
-			log.Panic("error receiving message")
+		for i := 0; i < NbMessages; i++ {
+			fn()
+			if err != nil {
+				log.Panic("error receiving message")
+			}
 		}
+		bytes = nil
 	}
 }
 
-func BenchmarkBinary(conn net.Conn) {
+func BenchmarkServerGOB() error {
 
-	buffer := make([]byte, MessageSize)
-	for i := 0; i < NbMessages; i++ {
-
-		err := binary.Read(conn, binary.LittleEndian, buffer)
-		if err != nil {
-			log.Panic("error receiving message")
-		}
-	}
+	return dec.Decode(&bytes)
 }
 
-func BenchmarkConn(conn net.Conn) {
+func BenchmarkServerBinary() error {
 
-	bytes := make([]byte, MessageSize)
-	for i := 0; i < NbMessages; i++ {
-
-		ReceiveConn(conn, bytes)
-	}
+	return binary.Read(client_connection, binary.LittleEndian, bytes)
 }
 
-func ReceiveConn(conn net.Conn, bytes []byte) {
+func BenchmarkServerConn() error {
+
+	return ReceiveConn(bytes)
+}
+
+func ReceiveConn(bytes []byte) error {
 
 	pong := 0
 	for pong < int(MessageSize) {
 
-		receivedBytes, err := conn.Read(bytes[pong:MessageSize])
+		receivedBytes, err := client_connection.Read(bytes[pong:MessageSize])
 		if err != nil || receivedBytes <= 0 {
-			log.Panic("error receiving message")
+			return fmt.Errorf("error receiving message")
 		}
 		pong += receivedBytes
 	}
+	return nil
 }

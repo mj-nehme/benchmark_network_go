@@ -6,9 +6,15 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
+	"runtime"
 	"strconv"
 	"time"
 )
+
+var server_conn *net.TCPConn
+var bytes []byte
+var enc *gob.Encoder
 
 func run_client() {
 
@@ -18,77 +24,65 @@ func run_client() {
 		log.Panicf("Error resolving address %s", err)
 	}
 
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	new_connection, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		log.Panicf("DialTCP Error %s", err)
 	}
+	server_conn = new_connection
+	enc = gob.NewEncoder(server_conn)
 
-	BenchmarkClientGOB(conn)
-	BenchmarkClientBinary(conn)
-	BenchmarkClientConn(conn)
-}
+	var fns []func() error
+	fns = append(fns, BenchmarkClientGOB)
+	fns = append(fns, BenchmarkClientBinary)
+	fns = append(fns, BenchmarkClientConn)
+	fmt.Println("Throughput: ")
 
-func BenchmarkClientGOB(conn net.Conn) {
+	for _, fn := range fns {
 
-	enc := gob.NewEncoder(conn)
+		var StartTime, EndTime time.Time
+		StartTime = time.Now()
 
-	bytes := make([]byte, MessageSize)
+		bytes = make([]byte, MessageSize)
 
-	var StartTime, EndTime time.Time
-	StartTime = time.Now()
-	for i := 0; i < NbMessages; i++ {
-
-		err := enc.Encode(bytes)
-		if err != nil {
-			log.Panic("error sending message")
+		for i := 0; i < NbMessages; i++ {
+			fn()
+			if err != nil {
+				log.Panic("error sending message")
+			}
 		}
+		bytes = nil
+		EndTime = time.Now()
+		throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
+		fmt.Println(runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name() + ":\t" + throughput)
 	}
-	EndTime = time.Now()
-	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
-	fmt.Println("Throughput using GOB Package:\t\t" + throughput)
 }
 
-func BenchmarkClientBinary(conn net.Conn) {
+func BenchmarkClientGOB() error {
 
-	buffer := make([]byte, MessageSize)
-
-	var StartTime, EndTime time.Time
-	StartTime = time.Now()
-	for i := 0; i < NbMessages; i++ {
-
-		err := binary.Write(conn, binary.LittleEndian, buffer)
-		if err != nil {
-			log.Panic("error sending message")
-		}
-	}
-	EndTime = time.Now()
-	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
-	fmt.Println("Throughput using Binary Package:\t" + throughput)
+	return enc.Encode(bytes)
 }
 
-func BenchmarkClientConn(conn net.Conn) {
+func BenchmarkClientBinary() error {
 
-	var StartTime, EndTime time.Time
-	StartTime = time.Now()
-	buffer := make(Message, MessageSize)
-	for i := 0; i < NbMessages; i++ {
+	return binary.Write(server_conn, binary.LittleEndian, bytes)
 
-		SendConn(conn, buffer)
-	}
-	EndTime = time.Now()
-	throughput := CalculateThroughput(StartTime, EndTime, MessageSize, NbMessages)
-	fmt.Println("Throughput using net Package:\t\t" + throughput)
 }
 
-func SendConn(conn net.Conn, bytes []byte) {
+func BenchmarkClientConn() error {
+
+	return SendConn(bytes)
+}
+
+func SendConn(bytes []byte) error {
 
 	ping := 0
 	for ping < int(MessageSize) {
 
-		sentBytes, err := conn.Write(bytes[ping:MessageSize])
+		sentBytes, err := server_conn.Write(bytes[ping:MessageSize])
 		if err != nil || sentBytes <= 0 {
-			log.Panic("error sending message")
+			return fmt.Errorf("error sending message")
 		}
 		ping += sentBytes
 	}
+	return nil
 }

@@ -17,7 +17,6 @@ type Message []byte
 
 func main() {
 
-	fmt.Println(os.Args)
 	switch len(os.Args) {
 	case 2:
 
